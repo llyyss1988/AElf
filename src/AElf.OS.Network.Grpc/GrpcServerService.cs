@@ -33,7 +33,7 @@ namespace AElf.OS.Network.Grpc
         public IOptionsSnapshot<NetworkOptions> NetworkOptionsSnapshot { get; set; }
 
         private readonly ISyncStateService _syncStateService;
-        private readonly IPeerPool _peerPool;
+        private readonly IGrpcPeerPool _peerPool;
         private readonly IBlockchainService _blockchainService;
         private readonly IAccountService _accountService;
         private readonly IPeerDiscoveryService _peerDiscoveryService;
@@ -41,7 +41,7 @@ namespace AElf.OS.Network.Grpc
         public ILocalEventBus EventBus { get; set; }
         public ILogger<GrpcServerService> Logger { get; set; }
 
-        public GrpcServerService(ISyncStateService syncStateService, IPeerPool peerPool, 
+        public GrpcServerService(ISyncStateService syncStateService, IGrpcPeerPool peerPool, 
             IBlockchainService blockchainService, IAccountService accountService, 
             IPeerDiscoveryService peerDiscoveryService)
         {
@@ -182,7 +182,7 @@ namespace AElf.OS.Network.Grpc
 
         public override Task<FinalizeConnectReply> FinalizeConnect(Handshake request, ServerCallContext context)
         {
-            var peer = _peerPool.FindPeerByPublicKey(context.GetPublicKey());
+            var peer = _peerPool.FindGrpcPeerByPublicKey(context.GetPublicKey());
             
             if (peer == null)
                 return Task.FromResult(new FinalizeConnectReply { Success = false });

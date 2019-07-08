@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using AElf.Types;
+using Volo.Abp.DependencyInjection;
 
 namespace AElf.OS.Network.Infrastructure
 {
@@ -14,18 +15,13 @@ namespace AElf.OS.Network.Infrastructure
         IPeer GetBestPeer();
         
         IReadOnlyDictionary<long, Hash> RecentBlockHeightAndHashMappings { get; }
-        
+        void AddRecentBlockHeightAndHash(long blockHeight, Hash blockHash, bool hasFork);
+
         IPeer FindPeerByAddress(string peerIpAddress);
         IPeer FindPeerByPublicKey(string remotePubKey);
-
-        bool AddPeer(IPeer peer);
-
+        
         Task<IPeer> RemovePeerAsync(string remotePubKey, bool sendDisconnect);
 
         Task<Handshake> GetHandshakeAsync();
-
-        void AddRecentBlockHeightAndHash(long blockHeight, Hash blockHash, bool hasFork);
-
-        Task ClearAllPeersAsync(bool sendDisconnect);
     }
 }

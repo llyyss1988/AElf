@@ -18,12 +18,13 @@ using Grpc.Core.Interceptors;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
+using Volo.Abp.DependencyInjection;
 using Volo.Abp.EventBus.Local;
 using Volo.Abp.Threading;
 
 namespace AElf.OS.Network.Grpc
 {
-    public class GrpcPeerPool : IPeerPool
+    public class GrpcPeerPool : IGrpcPeerPool, ISingletonDependency
     {
         private readonly NetworkOptions _networkOptions;
 
@@ -199,12 +200,17 @@ namespace AElf.OS.Network.Grpc
 
         public IPeer FindPeerByPublicKey(string publicKey)
         {
+            return FindGrpcPeerByPublicKey(publicKey);
+        }
+
+        public GrpcPeer FindGrpcPeerByPublicKey(string publicKey)
+        {
             if (string.IsNullOrEmpty(publicKey))
                 return null;
             
-            _authenticatedPeers.TryGetValue(publicKey, out GrpcPeer p);
-            
-            return p;
+            _authenticatedPeers.TryGetValue(publicKey, out GrpcPeer peer);
+
+            return peer;
         }
 
         public IPeer GetBestPeer()
@@ -212,23 +218,20 @@ namespace AElf.OS.Network.Grpc
             return GetPeers().FirstOrDefault(p => p.IsBest);
         }
 
-        public bool AddPeer(IPeer peer)
+        public bool AddPeer(GrpcPeer peer)
         {
-            if (!(peer is GrpcPeer p))
-                return false;
-            
             string localPubKey = AsyncHelper.RunSync(_accountService.GetPublicKeyAsync).ToHex();
 
             if (peer.Info.Pubkey == localPubKey)
                 throw new InvalidOperationException($"Connection to self detected {peer.Info.Pubkey} ({peer.IpAddress})");
 
-            if (!_authenticatedPeers.TryAdd(p.Info.Pubkey, p))
+            if (!_authenticatedPeers.TryAdd(peer.Info.Pubkey, peer))
             {
                 Logger.LogWarning($"Could not add peer {peer.Info.Pubkey} ({peer.IpAddress})");
                 return false;
             }
             
-            AsyncHelper.RunSync(() => _nodeManager.AddNodeAsync(new Node { Pubkey = p.Info.Pubkey.ToByteString(), Endpoint = p.IpAddress}));
+            AsyncHelper.RunSync(() => _nodeManager.AddNodeAsync(new Node { Pubkey = peer.Info.Pubkey.ToByteString(), Endpoint = peer.IpAddress}));
             
             return true;
         }

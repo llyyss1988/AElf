@@ -18,7 +18,7 @@ namespace AElf.OS.Network.Grpc
 {
     public class GrpcNetworkServer : IAElfNetworkServer, ISingletonDependency
     {
-        private readonly IPeerPool _peerPool;
+        private readonly IGrpcPeerPool _grpcPeerPool;
         
         private NetworkOptions NetworkOptions => NetworkOptionsSnapshot.Value;
         public IOptionsSnapshot<NetworkOptions> NetworkOptionsSnapshot { get; set; }
@@ -31,12 +31,12 @@ namespace AElf.OS.Network.Grpc
         public ILocalEventBus EventBus { get; set; }
         public ILogger<GrpcNetworkServer> Logger { get; set; }
 
-        public GrpcNetworkServer(PeerService.PeerServiceBase serverService, IPeerPool peerPool, 
+        public GrpcNetworkServer(PeerService.PeerServiceBase serverService, IGrpcPeerPool grpcPeerPool, 
             AuthInterceptor authInterceptor)
         {
             _serverService = serverService;
             _authInterceptor = authInterceptor;
-            _peerPool = peerPool;
+            _grpcPeerPool = grpcPeerPool;
 
             Logger = NullLogger<GrpcNetworkServer>.Instance;
             EventBus = NullLocalEventBus.Instance;
@@ -67,7 +67,7 @@ namespace AElf.OS.Network.Grpc
             // Add the provided boot nodes
             if (NetworkOptions.BootNodes != null && NetworkOptions.BootNodes.Any())
             {
-                List<Task<bool>> taskList = NetworkOptions.BootNodes.Select(_peerPool.AddPeerAsync).ToList();
+                List<Task<bool>> taskList = NetworkOptions.BootNodes.Select(_grpcPeerPool.AddPeerAsync).ToList();
                 await Task.WhenAll(taskList.ToArray<Task>());
             }
             else
@@ -89,7 +89,7 @@ namespace AElf.OS.Network.Grpc
                 // if server already shutdown, we continue and clear the channels.
             }
 
-            await _peerPool.ClearAllPeersAsync(gracefulDisconnect);
+            await _grpcPeerPool.ClearAllPeersAsync(gracefulDisconnect);
         }
 
         public void Dispose()

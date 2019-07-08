@@ -8,7 +8,6 @@ namespace AElf.OS.Network.Infrastructure
     public interface IPeer
     {
         bool IsBest { get; set; }
-        bool IsConnected { get; set; }
         bool IsReady { get; }
         
         long LastKnownLibHeight { get; }
