@@ -15,6 +15,8 @@ namespace AElf.Contract.CrossChain.Tests
 {
     public class SideChainLifeTimeManagementTest : CrossChainContractTestBase
     {
+        #region Side Chain Action
+
         [Fact]
         public async Task Create_SideChain()
         {
@@ -40,7 +42,7 @@ namespace AElf.Contract.CrossChain.Tests
             var parentChainId = await Tester.CallContractMethodAsync(CrossChainContractAddress,
                 nameof(CrossChainContractContainer.CrossChainContractStub.GetParentChainId), new Empty());
             var parentChain = SInt32Value.Parser.ParseFrom(parentChainId);
-            Assert.True(parentChain.Equals(new SInt32Value{Value = ChainHelper.ConvertBase58ToChainId("AELF")}));
+            Assert.True(parentChain.Equals(new SInt32Value {Value = ChainHelper.ConvertBase58ToChainId("AELF")}));
         }
 
         [Fact]
@@ -173,14 +175,16 @@ namespace AElf.Contract.CrossChain.Tests
             long parentChainHeightOfCreation = 10;
             var sideChainId =
                 await InitAndCreateSideChainAsync(parentChainHeightOfCreation, parentChainId, lockedTokenAmount);
-            
-            var lockedToken = SInt64Value.Parser.ParseFrom(await Tester.CallContractMethodAsync(CrossChainContractAddress,nameof(CrossChainContractContainer.CrossChainContractStub.LockedToken),new SInt32Value
-            {
-                Value = sideChainId
-            })).Value;
+
+            var lockedToken = SInt64Value.Parser.ParseFrom(await Tester.CallContractMethodAsync(
+                CrossChainContractAddress, nameof(CrossChainContractContainer.CrossChainContractStub.LockedToken),
+                new SInt32Value
+                {
+                    Value = sideChainId
+                })).Value;
             Assert.True(lockedToken == lockedTokenAmount);
         }
-        
+
         [Fact]
         public async Task GetLockedToken_NotExist()
         {
@@ -194,7 +198,7 @@ namespace AElf.Contract.CrossChain.Tests
             Assert.True(status == TransactionResultStatus.Failed);
             Assert.Contains("Side chain Not Found.", result.Error);
         }
-        
+
         [Fact]
         public async Task GetLockedToken_DisposedChain()
         {
@@ -203,14 +207,14 @@ namespace AElf.Contract.CrossChain.Tests
             long parentChainHeightOfCreation = 10;
             var sideChainId =
                 await InitAndCreateSideChainAsync(parentChainHeightOfCreation, parentChainId, lockedTokenAmount);
-            
+
             var proposalId = await DisposalSideChainProposalAsync(new SInt32Value
             {
                 Value = sideChainId
             });
             await ApproveWithMinersAsync(proposalId);
             await ReleaseProposalAsync(proposalId);
-            
+
             var result = await Tester.ExecuteContractWithMiningAsync(CrossChainContractAddress,
                 nameof(CrossChainContractContainer.CrossChainContractStub.LockedToken), new SInt32Value
                 {
@@ -220,7 +224,7 @@ namespace AElf.Contract.CrossChain.Tests
             Assert.True(status == TransactionResultStatus.Failed);
             Assert.Contains("Disposed side chain.", result.Error);
         }
-        
+
         [Fact]
         public async Task GetLockedAddress()
         {
@@ -229,14 +233,15 @@ namespace AElf.Contract.CrossChain.Tests
             long parentChainHeightOfCreation = 10;
             var sideChainId =
                 await InitAndCreateSideChainAsync(parentChainHeightOfCreation, parentChainId, lockedTokenAmount);
-            
-            var address = Address.Parser.ParseFrom(await Tester.CallContractMethodAsync(CrossChainContractAddress,nameof(CrossChainContractContainer.CrossChainContractStub.LockedAddress),new SInt32Value
-            {
-                Value = sideChainId
-            }));
+
+            var address = Address.Parser.ParseFrom(await Tester.CallContractMethodAsync(CrossChainContractAddress,
+                nameof(CrossChainContractContainer.CrossChainContractStub.LockedAddress), new SInt32Value
+                {
+                    Value = sideChainId
+                }));
             Assert.True(address == Tester.GetCallOwnerAddress());
         }
-        
+
         [Fact]
         public async Task GetLockedAddress_NotExist()
         {
@@ -250,7 +255,7 @@ namespace AElf.Contract.CrossChain.Tests
             Assert.True(status == TransactionResultStatus.Failed);
             Assert.Contains("Not existed side chain.", result.Error);
         }
-        
+
         [Fact]
         public async Task GetLockedAddress_DisposedChain()
         {
@@ -259,14 +264,14 @@ namespace AElf.Contract.CrossChain.Tests
             long parentChainHeightOfCreation = 10;
             var sideChainId =
                 await InitAndCreateSideChainAsync(parentChainHeightOfCreation, parentChainId, lockedTokenAmount);
-            
+
             var proposalId = await DisposalSideChainProposalAsync(new SInt32Value
             {
                 Value = sideChainId
             });
             await ApproveWithMinersAsync(proposalId);
             await ReleaseProposalAsync(proposalId);
-            
+
             var result = await Tester.ExecuteContractWithMiningAsync(CrossChainContractAddress,
                 nameof(CrossChainContractContainer.CrossChainContractStub.LockedToken), new SInt32Value
                 {
@@ -476,6 +481,49 @@ namespace AElf.Contract.CrossChain.Tests
             var status = txResult.Status;
             Assert.True(status == TransactionResultStatus.Failed);
             Assert.Contains("Not existed side chain.", txResult.Error);
+        }
+
+        #endregion
+
+        [Fact]
+        public async Task ChangeOwnerAddress()
+        {
+            var input = Tester.GetCallOwnerAddress();
+            var organizationAddress = Address.Parser.ParseFrom((await Tester.ExecuteContractWithMiningAsync(
+                    ParliamentAddress,
+                    nameof(ParliamentAuthContractContainer.ParliamentAuthContractStub.GetGenesisOwnerAddress),
+                    new Empty()))
+                .ReturnValue);
+            var proposal = await Tester.ExecuteContractWithMiningAsync(ParliamentAddress,
+                nameof(ParliamentAuthContractContainer.ParliamentAuthContractStub.CreateProposal),
+                new CreateProposalInput
+                {
+                    ContractMethodName = "ChangOwnerAddress",
+                    ExpiredTime = TimestampHelper.GetUtcNow().AddDays(1),
+                    Params = input.ToByteString(),
+                    ToAddress = CrossChainContractAddress,
+                    OrganizationAddress = organizationAddress
+                });
+            var proposalId = Hash.Parser.ParseFrom(proposal.ReturnValue);
+            await ApproveWithMinersAsync(proposalId);
+            await ReleaseProposalAsync(proposalId);
+
+            var txResult = await Tester.ExecuteContractWithMiningAsync(CrossChainContractAddress,
+                nameof(CrossChainContractContainer.CrossChainContractStub.ChangOwnerAddress),
+                Address.FromString("Test"));
+            var status = txResult.Status;
+            Assert.True(status == TransactionResultStatus.Mined);
+        }
+
+        [Fact]
+        public async Task ChangeOwnerAddress_NotAuthorized()
+        {
+            var txResult = await Tester.ExecuteContractWithMiningAsync(CrossChainContractAddress,
+                nameof(CrossChainContractContainer.CrossChainContractStub.ChangOwnerAddress),
+                Address.FromString("Test"));
+            var status = txResult.Status;
+            Assert.True(status == TransactionResultStatus.Failed);
+            Assert.Contains("Not authorized to do this.", txResult.Error);
         }
     }
 }
