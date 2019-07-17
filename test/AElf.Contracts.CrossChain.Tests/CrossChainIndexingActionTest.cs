@@ -514,6 +514,27 @@ namespace AElf.Contract.CrossChain.Tests
             var sideChainInfo = SideChainIdAndHeightDict.Parser.ParseFrom(transactionResult.ReturnValue);
             Assert.True(sideChainInfo.Equals(dict));
         }
+        
+        [Fact]
+        public async Task GetSideChainInfo_WrongStatus()
+        {
+            var dict = new SideChainIdAndHeightDict();
+            var sideChainId = await InitAndCreateSideChainAsync();
+            var proposalId = await DisposalSideChainProposalAsync(new SInt32Value
+            {
+                Value = sideChainId
+            });
+            await ApproveWithMinersAsync(proposalId);
+            await ReleaseProposalAsync(proposalId);
+            
+            var transactionResult = await Tester.ExecuteContractWithMiningAsync(CrossChainContractAddress,
+                nameof(CrossChainContractContainer.CrossChainContractStub.GetSideChainIdAndHeight), new Empty());
+            var status = transactionResult.Status;
+            Assert.True(status == TransactionResultStatus.Mined);
+
+            var sideChainInfo = SideChainIdAndHeightDict.Parser.ParseFrom(transactionResult.ReturnValue);
+            Assert.True(sideChainInfo.Equals(dict));
+        }
 
         [Fact]
         public async Task GetAllChainsInfo()
@@ -537,16 +558,12 @@ namespace AElf.Contract.CrossChain.Tests
         [Fact]
         public async Task GetAllChainsInfo_WithoutParentChain()
         {
-            long parentChainHeightOfCreation = 10;
-            var chainId = await InitAndCreateSideChainAsync(parentChainHeightOfCreation);
-
             var transactionResult = await Tester.ExecuteContractWithMiningAsync(CrossChainContractAddress,
                 nameof(CrossChainContractContainer.CrossChainContractStub.GetAllChainsIdAndHeight), new Empty());
             var status = transactionResult.Status;
             Assert.True(status == TransactionResultStatus.Mined);
 
             var sideChainInfo = SideChainIdAndHeightDict.Parser.ParseFrom(transactionResult.ReturnValue);
-            Assert.True(sideChainInfo.IdHeightDict.ContainsKey(chainId));
         }
 
         [Fact]
