@@ -26,7 +26,6 @@ namespace AElf.OS
 
             context.Services.AddAssemblyOf<OSAElfModule>();
 
-            context.Services.AddSingleton<AnnouncementReceivedEventHandler>();
             context.Services.AddSingleton<AnnouncementCountEventHandler>();
             context.Services.AddSingleton<PreLibAnnouncementReceivedEventHandler>();
             context.Services.AddSingleton<PeerDiscoveryWorker>();
@@ -38,9 +37,10 @@ namespace AElf.OS
         {
             var taskQueueManager = context.ServiceProvider.GetService<ITaskQueueManager>();
 
-            taskQueueManager.CreateQueue(OSConsts.BlockSyncAttachQueueName);
-            taskQueueManager.CreateQueue(OSConsts.BlockSyncQueueName);
-            taskQueueManager.CreateQueue(OSConsts.InitialSyncQueueName);
+            taskQueueManager.CreateQueue(OSConstants.BlockSyncAttachQueueName);
+            taskQueueManager.CreateQueue(OSConstants.BlockDownloadQueueName);
+            taskQueueManager.CreateQueue(OSConstants.BlockFetchQueueName, 4);
+            taskQueueManager.CreateQueue(OSConstants.InitialSyncQueueName);
 
             var networkOptions = context.ServiceProvider.GetService<IOptionsSnapshot<NetworkOptions>>().Value;
 
