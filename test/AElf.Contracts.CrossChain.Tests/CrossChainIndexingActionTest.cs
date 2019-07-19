@@ -558,12 +558,14 @@ namespace AElf.Contract.CrossChain.Tests
         [Fact]
         public async Task GetAllChainsInfo_WithoutParentChain()
         {
+            var dict = new SideChainIdAndHeightDict();
             var transactionResult = await Tester.ExecuteContractWithMiningAsync(CrossChainContractAddress,
                 nameof(CrossChainContractContainer.CrossChainContractStub.GetAllChainsIdAndHeight), new Empty());
             var status = transactionResult.Status;
             Assert.True(status == TransactionResultStatus.Mined);
 
             var sideChainInfo = SideChainIdAndHeightDict.Parser.ParseFrom(transactionResult.ReturnValue);
+            Assert.True(sideChainInfo.Equals(dict));
         }
 
         [Fact]
@@ -703,6 +705,58 @@ namespace AElf.Contract.CrossChain.Tests
             Assert.True(verified);
         }
 
+        [Fact]
+        public async Task CrossChain_Verification_WithFailedTx()
+        {
+            int parentChainId = 123;
+            long lockedToken = 10;
+            long parentChainHeightOfCreation = 10;
+            var sideChainId =
+                await InitAndCreateSideChainAsync(parentChainHeightOfCreation, parentChainId, lockedToken);
+            var txId = Hash.FromString("sideChainBlockHash");
+            var binaryMerkleTree = new BinaryMerkleTree();
+            var fakeHash1 = Hash.FromString("fake1");
+            var fakeHash2 = Hash.FromString("fake2");
+
+            var rawBytes = txId.DumpByteArray()
+                .Concat(EncodingHelper.GetBytesFromUtf8String(TransactionResultStatus.Failed.ToString()))
+                .ToArray();
+            var hash = Hash.FromRawBytes(rawBytes);
+
+            binaryMerkleTree.AddNodes(new[] {hash, fakeHash1, fakeHash2});
+            var merkleTreeRoot = binaryMerkleTree.ComputeRootHash();
+            var merklePath = new MerklePath();
+            merklePath.Path.AddRange(binaryMerkleTree.GenerateMerklePath(0));
+            Hash fakeTransactionStatusMerkleRoot = Hash.FromString("TransactionStatusMerkleRoot");
+            var parentChainBlockData = CreateParentChainBlockData(parentChainHeightOfCreation, parentChainId,
+                fakeTransactionStatusMerkleRoot);
+            parentChainBlockData.CrossChainExtraData = new CrossChainExtraData
+            {
+                SideChainTransactionsRoot = merkleTreeRoot
+            };
+            var crossChainBlockData = new CrossChainBlockData
+            {
+                ParentChainBlockData = {parentChainBlockData}
+            };
+
+            var indexingTx = await GenerateTransactionAsync(CrossChainContractAddress,
+                CrossChainConstants.CrossChainIndexingMethodName, null, crossChainBlockData);
+            var block = await MineAsync(new List<Transaction> {indexingTx});
+
+            var verificationInput = new VerifyTransactionInput()
+            {
+                TransactionId = txId,
+                ParentChainHeight = parentChainHeightOfCreation
+            };
+            verificationInput.Path.AddRange(merklePath.Path);
+            var txRes = await ExecuteContractWithMiningAsync(
+                CrossChainContractAddress,
+                nameof(CrossChainContractContainer.CrossChainContractStub.VerifyTransaction), verificationInput);
+
+            var verified = BoolValue.Parser.ParseFrom(txRes.ReturnValue).Value;
+            Assert.False(verified);
+        }
+        
         [Fact]
         public async Task CurrentSideChainSerialNumber()
         {

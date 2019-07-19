@@ -46,7 +46,7 @@ namespace AElf.CrossChain.Communication.Grpc
             await ParentChainGrpcServerBase.RequestIndexingFromParentChainAsync(requestData, responseStream, context);
         }
         
-        [Fact(Skip = "https://github.com/AElfProject/AElf/issues/1643")]
+        [Fact]
         public async Task RequestIndexingParentChain_WithExtraData()
         {
             var requestData = new CrossChainRequest
@@ -89,7 +89,21 @@ namespace AElf.CrossChain.Communication.Grpc
             indexingHandShakeReply.ShouldNotBeNull();
             indexingHandShakeReply.Success.ShouldBeTrue();
         }
-        
+
+        [Fact]
+        public async Task RequestChainInitializationDataFromParentChain()
+        {
+            var requestData = new SideChainInitializationRequest
+            {
+                ChainId = 0
+            };
+            var context = BuildServerCallContext(); 
+            var sideChainInitializationResponse =
+                await ParentChainGrpcServerBase.RequestChainInitializationDataFromParentChainAsync(requestData,context);
+            sideChainInitializationResponse.CreationHeightOnParentChain.ShouldBe(1);
+            sideChainInitializationResponse.ChainId.ShouldBe(0);
+        }
+
         private ServerCallContext BuildServerCallContext(Metadata metadata = null)
         {
             var meta = metadata ?? new Metadata();
