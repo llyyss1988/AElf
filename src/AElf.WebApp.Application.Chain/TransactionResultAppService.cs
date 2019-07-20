@@ -52,7 +52,7 @@ namespace AElf.WebApp.Application.Chain
             Hash transactionHash;
             try
             {
-                transactionHash = Hash.LoadHex(transactionId);
+                transactionHash = HashHelper.HexStringToHash(transactionId);
             }
             catch
             {
@@ -114,7 +114,7 @@ namespace AElf.WebApp.Application.Chain
             Hash realBlockHash;
             try
             {
-                realBlockHash = Hash.LoadHex(blockHash);
+                realBlockHash = HashHelper.HexStringToHash(blockHash);
             }
             catch
             {
