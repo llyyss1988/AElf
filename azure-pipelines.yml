@@ -61,5 +61,5 @@ jobs:
   - task: DotNetCoreCLI@2
     inputs:
       command: 'build'
-      projects: 'AElf.Console.sln'
+      projects: 'AElf.sln'
       arguments: '/p:NoBuild=false --configuration Debug'
