@@ -21,9 +21,9 @@ jobs:
       projects: 'AElf.Console.sln'
       arguments: '/p:NoBuild=false --configuration Debug'
   - task: DotNetCoreCLI@2
-     inputs:
-       command: 'test'
-       projects: 'AElf.sln'
+    inputs:
+      command: 'test'
+      projects: 'AElf.sln'
   
 
 
