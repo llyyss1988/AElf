@@ -58,4 +58,8 @@ jobs:
       version: '2.2.300' 
   - script: bash scripts/install_protobuf.sh
   - script: LD_LIBRARY_PATH=$HOME/.chakracore/1_11_1/:$LD_LIBRARY_PATH;bash scripts/install_chakracore.sh 1_11_1
-  - script: bash scripts/build.sh
+  - task: DotNetCoreCLI@2
+    inputs:
+      command: 'build'
+      projects: 'AElf.Console.sln'
+      arguments: '/p:NoBuild=false --configuration Debug'
