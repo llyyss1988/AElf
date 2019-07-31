@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Linq;
 using AElf.Contracts.CrossChain;
 using AElf.Contracts.MultiToken.Messages;
-using AElf.Kernel;
 using AElf.Sdk.CSharp;
 using AElf.Types;
 using Google.Protobuf.WellKnownTypes;
@@ -13,6 +12,11 @@ namespace AElf.Contracts.MultiToken
 {
     public partial class TokenContract : TokenContractImplContainer.TokenContractImplBase
     {
+        /// <summary>
+        /// Register the TokenInfo into TokenContract add set true in the TokenContractState.LockWhiteLists;
+        /// </summary>
+        /// <param name="input"></param>
+        /// <returns></returns>
         public override Empty Create(CreateInput input)
         {
             var existing = State.TokenInfos[input.Symbol];
@@ -62,6 +66,11 @@ namespace AElf.Contracts.MultiToken
             return Create(createInput);
         }
 
+        /// <summary>
+        /// Issue the token of corresponding contract
+        /// </summary>
+        /// <param name="input"></param>
+        /// <returns></returns>
         public override Empty Issue(IssueInput input)
         {
             Assert(input.To != null, "To address not filled.");
@@ -75,6 +84,11 @@ namespace AElf.Contracts.MultiToken
             return new Empty();
         }
 
+        /// <summary>
+        /// Issue the token to the system contract
+        /// </summary>
+        /// <param name="input"></param>
+        /// <returns></returns>
         public override Empty IssueNativeToken(IssueNativeTokenInput input)
         {
             Assert(input.ToSystemContractName != null, "To address not filled.");
@@ -91,11 +105,16 @@ namespace AElf.Contracts.MultiToken
 
         public override Empty Transfer(TransferInput input)
         {
-            AssertValidToken(input.Symbol, input.Amount);
+            AssertValidSymbolAndAmount(input.Symbol, input.Amount);
             DoTransfer(Context.Sender, input.To, input.Symbol, input.Amount, input.Memo);
             return new Empty();
         }
 
+        /// <summary>
+        /// Transfer token form a chain to another chain
+        /// </summary>
+        /// <param name="input"></param>
+        /// <returns></returns>
         public override Empty CrossChainTransfer(CrossChainTransferInput input)
         {
             AssertValidToken(input.TokenInfo.Symbol, input.Amount);
@@ -108,13 +127,19 @@ namespace AElf.Contracts.MultiToken
             return new Empty();
         }
 
+
+        /// <summary>
+        /// Receive the token from another chain
+        /// </summary>
+        /// <param name="input"></param>
+        /// <returns></returns>
         public override Empty CrossChainReceiveToken(CrossChainReceiveTokenInput input)
         {
             var transferTransaction = Transaction.Parser.ParseFrom(input.TransferTransactionBytes);
-            var transferTransactionHash = transferTransaction.GetHash();
+            var transferTransactionId = transferTransaction.GetHash();
 
-            Context.LogDebug(() => $"transferTransactionHash == {transferTransactionHash}");
-            Assert(State.VerifiedCrossChainTransferTransaction[transferTransactionHash] == null,
+            Context.LogDebug(() => $"transferTransactionId == {transferTransactionId}");
+            Assert(State.VerifiedCrossChainTransferTransaction[transferTransactionId] == null,
                 "Token already claimed.");
 
             var crossChainTransferInput =
@@ -134,7 +159,7 @@ namespace AElf.Contracts.MultiToken
                     Context.GetContractAddressByName(SmartContractConstants.CrossChainContractSystemName);
             var verificationInput = new VerifyTransactionInput
             {
-                TransactionId = transferTransactionHash,
+                TransactionId = transferTransactionId,
                 ParentChainHeight = input.ParentChainHeight,
                 VerifiedChainId = input.FromChainId
             };
@@ -151,7 +176,7 @@ namespace AElf.Contracts.MultiToken
             if (existing == null)
                 RegisterTokenInfo(crossChainTransferInput.TokenInfo);
 
-            State.VerifiedCrossChainTransferTransaction[transferTransactionHash] = input;
+            State.VerifiedCrossChainTransferTransaction[transferTransactionId] = input;
             var balanceOfReceiver = State.Balances[receivingAddress][symbol];
             State.Balances[receivingAddress][symbol] = balanceOfReceiver.Add(amount);
             return new Empty();
@@ -187,7 +212,7 @@ namespace AElf.Contracts.MultiToken
 
         public override Empty TransferFrom(TransferFromInput input)
         {
-            AssertValidToken(input.Symbol, input.Amount);
+            AssertValidSymbolAndAmount(input.Symbol, input.Amount);
 
             // First check allowance.
             var allowance = State.Allowances[input.From][Context.Sender][input.Symbol];
@@ -198,6 +223,7 @@ namespace AElf.Contracts.MultiToken
                     DoTransfer(input.From, input.To, input.Symbol, input.Amount, input.Memo);
                     return new Empty();
                 }
+
                 Assert(false, "Insufficient allowance.");
             }
 
@@ -278,7 +304,7 @@ namespace AElf.Contracts.MultiToken
             var feePoolAddressNotSet =
                 State.FeePoolAddress.Value == null || State.FeePoolAddress.Value == new Address();
             Assert(!feePoolAddressNotSet, "Fee pool address is not set.");
-            
+
             var transactions = Context.GetPreviousBlockTransactions();
             var senders = transactions.Select(t => t.From).ToList();
             var feePool = State.FeePoolAddress.Value;

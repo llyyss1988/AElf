@@ -1,6 +1,7 @@
 using System;
 using System.Threading.Tasks;
 using AElf.Contracts.MultiToken.Messages;
+using AElf.Contracts.TestKit;
 using AElf.Kernel;
 using AElf.Types;
 using Google.Protobuf.WellKnownTypes;
@@ -205,7 +206,7 @@ namespace AElf.Contracts.TokenConverter
             var toConnectorBalance = await GetBalanceAsync(_ramSymbol, TokenConverterContractAddress);
             var toConnectorWeight = decimal.Parse(RamConnector.Weight);
             
-            var amountToPay = BancorHelpers.GetAmountToPayFromReturn(fromConnectorBalance,fromConnectorWeight,toConnectorBalance,toConnectorWeight,1000L);
+            var amountToPay = BancorHelper.GetAmountToPayFromReturn(fromConnectorBalance,fromConnectorWeight,toConnectorBalance,toConnectorWeight,1000L);
             var fee = Convert.ToInt64(amountToPay * 5 / 1000);
 
             var buyResult = (await DefaultStub.Buy.SendAsync(
@@ -302,7 +303,7 @@ namespace AElf.Contracts.TokenConverter
             var fromConnectorBalance = await GetBalanceAsync(_ramSymbol,TokenConverterContractAddress);
             var fromConnectorWeight = decimal.Parse(RamConnector.Weight);
             
-            var amountToReceive = BancorHelpers.GetReturnFromPaid(fromConnectorBalance,fromConnectorWeight,toConnectorBalance,toConnectorWeight,1000L);
+            var amountToReceive = BancorHelper.GetReturnFromPaid(fromConnectorBalance,fromConnectorWeight,toConnectorBalance,toConnectorWeight,1000L);
             var fee = Convert.ToInt64(amountToReceive * 5 / 1000);
             
             var sellResult =(await DefaultStub.Sell.SendAsync(new SellInput
@@ -468,7 +469,7 @@ namespace AElf.Contracts.TokenConverter
             
             //valid address
             {
-                var address = Address.Generate();
+                var address = SampleAddress.AddressList[0];
                 
                 var transactionResult = (await testManager.SetManagerAddress.SendAsync(address)).TransactionResult;
                 transactionResult.Status.ShouldBe(TransactionResultStatus.Mined);

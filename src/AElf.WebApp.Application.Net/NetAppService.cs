@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
@@ -46,7 +47,15 @@ namespace AElf.WebApp.Application.Net
         /// <returns></returns>
         public async Task<bool> RemovePeerAsync(string address)
         {
-            return await _networkService.RemovePeerAsync(address);
+            try
+            {
+                return await _networkService.RemovePeerAsync(address);
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine(e);
+                throw;
+            }
         }
         
         /// <summary>
@@ -59,11 +68,10 @@ namespace AElf.WebApp.Application.Net
             
             var peerDtoList = peerList.Select(p => new PeerDto
             {
-                IpAddress = p.PeerIpAddress,
-                ProtocolVersion = p.ProtocolVersion,
-                ConnectionTime = p.ConnectionTime,
-                Inbound = p.Inbound,
-                StartHeight = p.StartHeight,
+                IpAddress = p.IpAddress,
+                ProtocolVersion = p.Info.ProtocolVersion,
+                ConnectionTime = p.Info.ConnectionTime,
+                Inbound = p.Info.IsInbound,
                 RequestMetrics = p.GetRequestMetrics().Values.SelectMany(kvp => kvp).ToList()
             }).ToList();
             
@@ -80,7 +88,7 @@ namespace AElf.WebApp.Application.Net
             {
                 ProtocolVersion = KernelConstants.ProtocolVersion,
                 Version = Version,
-                Connections = _networkService.GetPeerIpList().Count
+                Connections = _networkService.GetPeers().Count
             };
             return Task.FromResult(output);
         }

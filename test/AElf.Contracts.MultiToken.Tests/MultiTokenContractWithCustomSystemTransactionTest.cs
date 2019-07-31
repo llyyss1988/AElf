@@ -1,6 +1,7 @@
 using System.Linq;
 using System.Threading.Tasks;
 using AElf.Contracts.MultiToken.Messages;
+using AElf.Contracts.TestKit;
 using AElf.Kernel;
 using AElf.Types;
 using Google.Protobuf;
@@ -26,7 +27,7 @@ namespace AElf.Contracts.MultiToken
                 // TokenContract
                 var category = KernelConstants.CodeCoverageRunnerCategory;
                 var code = TokenContractCode;
-                TokenContractAddress = await DeployContractAsync(category, code, DefaultSenderKeyPair);
+                TokenContractAddress = await DeployContractAsync(category, code, Hash.FromString("MultiToken"), DefaultSenderKeyPair);
                 TokenContractStub =
                     GetTester<TokenContractContainer.TokenContractStub>(TokenContractAddress, DefaultSenderKeyPair);
 
@@ -66,7 +67,7 @@ namespace AElf.Contracts.MultiToken
                         Amount = transferAmountInSystemTxn,
                         Memo = "transfer test",
                         Symbol = DefaultSymbol,
-                        To = Address.Zero
+                        To = SampleAddress.AddressList[0]
                     }.ToByteString(),
                     RefBlockNumber = preBlockHeight,
                     RefBlockPrefix = ByteString.CopyFrom(preBlockHash.Value.Take(4).ToArray())

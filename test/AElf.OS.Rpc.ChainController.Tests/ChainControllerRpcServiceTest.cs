@@ -85,7 +85,7 @@ namespace AElf.OS.Rpc.ChainController.Tests
             var response = await JsonCallAsJObject("/chain", "GetChainInformation");
 
             var responseZeroContractAddress = response["result"]["GenesisContractAddress"].ToString();
-            var responseChainId = ChainHelpers.ConvertBase58ToChainId(response["result"]["ChainId"].ToString());
+            var responseChainId = ChainHelper.ConvertBase58ToChainId(response["result"]["ChainId"].ToString());
 
             responseZeroContractAddress.ShouldBe(basicContractZero.GetFormatted());
             responseChainId.ShouldBe(chainId);
@@ -96,16 +96,16 @@ namespace AElf.OS.Rpc.ChainController.Tests
         {
             // Generate a transaction
             var transaction = await _osTestHelper.GenerateTransferTransaction();
-            var transactionHash = transaction.GetHash();
+            var transactionId = transaction.GetHash();
 
             var response = await JsonCallAsJObject("/chain", "BroadcastTransaction",
                 new {rawTransaction = transaction.ToByteArray().ToHex()});
             var responseTransactionId = response["result"]["TransactionId"].ToString();
 
-            responseTransactionId.ShouldBe(transactionHash.ToHex());
+            responseTransactionId.ShouldBe(transactionId.ToHex());
 
             var existTransaction = await _txHub.GetExecutableTransactionSetAsync();
-            existTransaction.Transactions[0].GetHash().ShouldBe(transactionHash);
+            existTransaction.Transactions[0].GetHash().ShouldBe(transactionId);
         }
 
         [Fact]
@@ -116,7 +116,7 @@ namespace AElf.OS.Rpc.ChainController.Tests
             var basicContractZero = _smartContractAddressService.GetZeroSmartContractAddress();
             var transaction = new Transaction
             {
-                From = Address.Generate(),
+                From = SampleAddress.AddressList[0],
                 To = basicContractZero,
                 MethodName = "GetContractInfo",
                 Params = basicContractZero.ToByteString()
@@ -298,10 +298,7 @@ namespace AElf.OS.Rpc.ChainController.Tests
         [Fact]
         public async Task Get_NotExisted_TransactionsResult()
         {
-            var block = new Block
-            {
-                Header = new BlockHeader(),
-            };
+            var block = _osTestHelper.GenerateBlock(Hash.Empty, 10);
             var blockHash = block.GetHash().ToHex();
             var response = await JsonCallAsJObject("/chain", "GetTransactionsResult",
                 new {blockHash, offset = 0, num = 10});
@@ -316,10 +313,7 @@ namespace AElf.OS.Rpc.ChainController.Tests
         [Fact]
         public async Task Get_TransactionsResult_With_InvalidParameter()
         {
-            var block = new Block
-            {
-                Header = new BlockHeader(),
-            };
+            var block = _osTestHelper.GenerateBlock(Hash.Empty, 10);
             var blockHash = block.GetHash().ToHex();
             
             var response1 = await JsonCallAsJObject("/chain", "GetTransactionsResult",
@@ -365,7 +359,7 @@ namespace AElf.OS.Rpc.ChainController.Tests
                 .ShouldBe(block.Header.MerkleTreeRootOfWorldState.ToHex());
             ((long) responseResult["Header"]["Height"]).ShouldBe(block.Height);
             Convert.ToDateTime(responseResult["Header"]["Time"]).ShouldBe(block.Header.Time.ToDateTime());
-            responseResult["Header"]["ChainId"].ToString().ShouldBe(ChainHelpers.ConvertChainIdToBase58(chain.Id));
+            responseResult["Header"]["ChainId"].ToString().ShouldBe(ChainHelper.ConvertChainIdToBase58(chain.Id));
             responseResult["Header"]["Bloom"].ToString().ShouldBe(block.Header.Bloom.ToByteArray().ToHex());
             ((int) responseResult["Body"]["TransactionsCount"]).ShouldBe(3);
 
@@ -463,12 +457,12 @@ namespace AElf.OS.Rpc.ChainController.Tests
         [Fact]
         public void Transaction_To_JObject()
         {
-            var transaction = _osTestHelper.GenerateTransaction(Address.Generate(), Address.Generate(),
+            var transaction = _osTestHelper.GenerateTransaction(SampleAddress.AddressList[0], SampleAddress.AddressList[1],
                 nameof(TokenContractContainer.TokenContractStub.Transfer), new TransferInput
                 {
                     Symbol = "ELF",
                     Amount = 1000L,
-                    To = Address.Generate()
+                    To = SampleAddress.AddressList[0]
                 });
             var transactionObj = transaction.GetTransactionInfo();
             transactionObj.ShouldNotBeNull();
@@ -497,7 +491,7 @@ namespace AElf.OS.Rpc.ChainController.Tests
         [Fact]
         public async Task Get_FileDescriptorSet_Failed()
         {
-            var addressInfo = Address.Generate().GetFormatted();
+            var addressInfo = SampleAddress.AddressList[0].GetFormatted();
             var response = await JsonCallAsJObject("/chain", "GetFileDescriptorSet",
                 new {address = addressInfo});
             response["error"]["code"].To<long>().ShouldBe(Error.NotFound);
@@ -535,7 +529,7 @@ namespace AElf.OS.Rpc.ChainController.Tests
         private List<Transaction> GenerateTwoInitializeTransaction()
         {
             var transactionList = new List<Transaction>();
-            var newUserKeyPair = CryptoHelpers.GenerateKeyPair();
+            var newUserKeyPair = CryptoHelper.GenerateKeyPair();
 
             for (int i = 0; i < 2; i++)
             {
@@ -547,12 +541,12 @@ namespace AElf.OS.Rpc.ChainController.Tests
                         TokenName= $"elf token {i}",
                         TotalSupply = 1000_0000,
                         Decimals = 2,
-                        Issuer = Address.Generate(),
+                        Issuer = SampleAddress.AddressList[0],
                         IsBurnable = true
                     });
 
                 var signature =
-                    CryptoHelpers.SignWithPrivateKey(newUserKeyPair.PrivateKey, transaction.GetHash().DumpByteArray());
+                    CryptoHelper.SignWithPrivateKey(newUserKeyPair.PrivateKey, transaction.GetHash().ToByteArray());
                 transaction.Signature = ByteString.CopyFrom(signature);
 
                 transactionList.Add(transaction); 

@@ -21,6 +21,7 @@ namespace AElf.Kernel.SmartContract
         private readonly ISmartContractAddressService _smartContractAddressService;
         private readonly IDefaultContractZeroCodeProvider _defaultContractZeroCodeProvider;
         private readonly ECKeyPair _keyPair;
+        private readonly KernelTestHelper _kernelTestHelper;
 
         private IHostSmartContractBridgeContext _bridgeContext;
 
@@ -29,7 +30,8 @@ namespace AElf.Kernel.SmartContract
             _blockchainService = GetRequiredService<IBlockchainService>();
             _smartContractAddressService = GetRequiredService<ISmartContractAddressService>();
             _defaultContractZeroCodeProvider = GetRequiredService<IDefaultContractZeroCodeProvider>();
-            _keyPair = CryptoHelpers.GenerateKeyPair();
+            _kernelTestHelper = GetRequiredService<KernelTestHelper>();
+            _keyPair = CryptoHelper.GenerateKeyPair();
             _bridgeContext = CreateNewContext();
         }
 
@@ -44,7 +46,7 @@ namespace AElf.Kernel.SmartContract
         [Fact]
         public void Send_Inline_Success()
         {
-            var to = Address.Genesis;
+            var to = SampleAddress.AddressList[0];
             var methodName = "TestSendInline";
             var arg = "Arg";
             var argBytes = new StringValue {Value = arg}.ToByteString();
@@ -61,8 +63,8 @@ namespace AElf.Kernel.SmartContract
         [Fact]
         public void Send_VirtualInline_Success()
         {
-            var from = Hash.Generate();
-            var to = Address.Genesis;
+            var from = Hash.FromString("hash");
+            var to = SampleAddress.AddressList[0];
             var methodName = "TestVirtualInline";
             var arg = "Arg";
             var argBytes = new StringValue {Value = arg}.ToByteString();
@@ -80,15 +82,8 @@ namespace AElf.Kernel.SmartContract
         public void Get_GetPreviousTransactions_Success()
         {
             var transaction = GetNewTransaction();
-            
-            var newBlock = new Block
-            {
-                Header = new BlockHeader
-                {
-                    PreviousBlockHash = Hash.Empty
-                },
-                Body = new BlockBody { Transactions = { transaction.GetHash() }}
-            };
+
+            var newBlock = _kernelTestHelper.GenerateBlock(0, Hash.Empty, new List<Transaction> {transaction});
 
             _blockchainService.AddTransactionsAsync(new List<Transaction> {transaction});
             _blockchainService.AddBlockAsync(newBlock);
@@ -115,13 +110,13 @@ namespace AElf.Kernel.SmartContract
             var tx = new Transaction
             {
                 From = Address.FromPublicKey(_keyPair.PublicKey),
-                To = Address.FromString("To"),
+                To = SampleAddress.AddressList[0],
                 MethodName = "TestMethod",
                 Params = ByteString.CopyFrom(new byte[10]),
                 RefBlockNumber = 1,
                 RefBlockPrefix = ByteString.CopyFrom(new byte[4])
             };
-            var signature = CryptoHelpers.SignWithPrivateKey(_keyPair.PrivateKey, tx.GetHash().DumpByteArray());
+            var signature = CryptoHelper.SignWithPrivateKey(_keyPair.PrivateKey, tx.GetHash().ToByteArray());
             tx.Signature = ByteString.CopyFrom(signature);
 
             var verifyResult = _bridgeContext.VerifySignature(tx);
@@ -133,7 +128,7 @@ namespace AElf.Kernel.SmartContract
         {
             var tx = GetNewTransaction();
 
-            var signature = CryptoHelpers.SignWithPrivateKey(_keyPair.PrivateKey, tx.GetHash().DumpByteArray());
+            var signature = CryptoHelper.SignWithPrivateKey(_keyPair.PrivateKey, tx.GetHash().ToByteArray());
             tx.Signature = ByteString.CopyFrom(signature);
 
             var verifyResult = _bridgeContext.VerifySignature(tx);
@@ -173,10 +168,10 @@ namespace AElf.Kernel.SmartContract
             {
                 Category = KernelConstants.DefaultRunnerCategory,
                 Code = ByteString.Empty,
-                CodeHash = Hash.Generate()
+                CodeHash = Hash.FromString("hash")
             };
 
-            _bridgeContext.DeployContract(Address.Zero, registration, Hash.FromMessage(registration.CodeHash));
+            _bridgeContext.DeployContract(SampleAddress.AddressList[0], registration, Hash.FromMessage(registration.CodeHash));
         }
 
         [Fact]
@@ -207,7 +202,7 @@ namespace AElf.Kernel.SmartContract
                 CodeHash = Hash.Empty
             };
 
-            _bridgeContext.UpdateContract(Address.Zero, registration, null);
+            _bridgeContext.UpdateContract(SampleAddress.AddressList[0], registration, null);
         }
         
         private IHostSmartContractBridgeContext CreateNewContext()
@@ -219,7 +214,7 @@ namespace AElf.Kernel.SmartContract
                 Transaction = new Transaction()
                 {
                     From = Address.FromPublicKey(_keyPair.PublicKey),
-                    To = Address.Genesis,
+                    To = SampleAddress.AddressList[0],
                     MethodName = "Test",
                     Params = ByteString.CopyFrom(new byte[10]),
                     RefBlockNumber = 1,
@@ -231,8 +226,8 @@ namespace AElf.Kernel.SmartContract
                 Trace = new TransactionTrace(),
                 StateCache = new NullStateCache()
             };
-            var signature = CryptoHelpers.SignWithPrivateKey(_keyPair.PrivateKey, transactionContext.Transaction
-                .GetHash().DumpByteArray());
+            var signature = CryptoHelper.SignWithPrivateKey(_keyPair.PrivateKey, transactionContext.Transaction
+                .GetHash().ToByteArray());
             transactionContext.Transaction.Signature = ByteString.CopyFrom(signature);
             _bridgeContext.TransactionContext = transactionContext;
 
@@ -243,8 +238,8 @@ namespace AElf.Kernel.SmartContract
         {
             var tx = new Transaction
             {
-                From = Address.FromString("From"),
-                To = Address.FromString("To"),
+                From = SampleAddress.AddressList[0],
+                To = SampleAddress.AddressList[1],
                 MethodName = Guid.NewGuid().ToString(),
                 Params = ByteString.CopyFrom(new byte[10]),
                 RefBlockNumber = 1,

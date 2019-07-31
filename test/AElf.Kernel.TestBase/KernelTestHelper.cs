@@ -15,7 +15,7 @@ namespace AElf.Kernel
 {
     public class KernelTestHelper
     {
-        private ECKeyPair _keyPair = CryptoHelpers.GenerateKeyPair();
+        private ECKeyPair _keyPair = CryptoHelper.GenerateKeyPair();
         private readonly IBlockchainService _blockchainService;
         private readonly ITransactionResultService _transactionResultService;
         private readonly IChainManager _chainManager;
@@ -69,7 +69,7 @@ namespace AElf.Kernel
         ///        Fork Branch:                    (e)-> q -> r -> s -> t -> u
         ///    Unlinked Branch:                                              v  -> w  -> x  -> y  -> z
         /// </returns>
-        public async Task<Chain> MockChain()
+        public async Task<Chain> MockChainAsync()
         {
             var chain = await CreateChain();
 
@@ -106,16 +106,16 @@ namespace AElf.Kernel
             var transaction = new Transaction
             {
                 From = Address.FromPublicKey(_keyPair.PublicKey),
-                To = Address.Zero,
+                To = SampleAddress.AddressList[0],
                 MethodName = Guid.NewGuid().ToString(),
                 Params = ByteString.Empty,
                 RefBlockNumber = refBlockNumber,
                 RefBlockPrefix = refBlockHash == null
                     ? ByteString.Empty
-                    : ByteString.CopyFrom(refBlockHash.DumpByteArray().Take(4).ToArray())
+                    : ByteString.CopyFrom(refBlockHash.ToByteArray().Take(4).ToArray())
             };
 
-            var signature = CryptoHelpers.SignWithPrivateKey(_keyPair.PrivateKey, transaction.GetHash().DumpByteArray());
+            var signature = CryptoHelper.SignWithPrivateKey(_keyPair.PrivateKey, transaction.GetHash().ToByteArray());
             transaction.Signature = ByteString.CopyFrom(signature);
             return transaction;
         }
@@ -137,7 +137,7 @@ namespace AElf.Kernel
             return transactionResult;
         }
 
-        public Block GenerateBlock(long previousBlockHeight, Hash previousBlockHash, List<Transaction> transactions)
+        public Block GenerateBlock(long previousBlockHeight, Hash previousBlockHash, List<Transaction> transactions = null)
         {
             var newBlock = new Block
             {
@@ -145,22 +145,25 @@ namespace AElf.Kernel
                 {
                     Height = previousBlockHeight + 1,
                     PreviousBlockHash = previousBlockHash,
-                    Time = TimestampHelper.GetUtcNow()
+                    Time = TimestampHelper.GetUtcNow(),
+                    MerkleTreeRootOfWorldState = Hash.Empty,
+                    MerkleTreeRootOfTransactionStatus = Hash.Empty,
+                    MerkleTreeRootOfTransactions = Hash.Empty,
+                    ExtraData = { ByteString.Empty },
+                    SignerPubkey = ByteString.CopyFrom(_keyPair.PublicKey)
                 },
                 Body = new BlockBody()
             };
-            
-//            var newBlock = new Block(previousBlockHash);
-//            newBlock.Header.Height = previousBlockHeight + 1;
-//            newBlock.Header.Time = TimestampHelper.GetUtcNow();
-//            
-            foreach (var transaction in transactions)
+
+            if (transactions != null)
             {
-                newBlock.AddTransaction(transaction);
+                foreach (var transaction in transactions)
+                {
+                    newBlock.AddTransaction(transaction);
+                }
+                newBlock.Header.MerkleTreeRootOfTransactions = newBlock.Body.CalculateMerkleTreeRoot();
             }
 
-            newBlock.Header.MerkleTreeRootOfTransactions = newBlock.Body.CalculateMerkleTreeRoot();
-            
             return newBlock;
         }
 
@@ -237,15 +240,7 @@ namespace AElf.Kernel
 
         private async Task<Chain> CreateChain()
         {
-            var genesisBlock = new Block
-            {
-                Header = new BlockHeader
-                {
-                    Height = Constants.GenesisBlockHeight,
-                    PreviousBlockHash = Hash.Empty
-                },
-                Body = new BlockBody()
-            };
+            var genesisBlock = GenerateBlock(0, Hash.Empty, new List<Transaction>());
             
             var chain = await _blockchainService.CreateChainAsync(genesisBlock, new List<Transaction>());
             
