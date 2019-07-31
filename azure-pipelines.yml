@@ -44,7 +44,10 @@ jobs:
       command: 'build'
       projects: 'AElf.sln'
       arguments: '/p:NoBuild=false --configuration Debug'
-  - script: bash scripts/test.sh
+  - task: DotNetCoreCLI@2
+    inputs:
+      command: 'test'
+      projects: 'AElf.sln'
 
 
 # All tasks on macOS
